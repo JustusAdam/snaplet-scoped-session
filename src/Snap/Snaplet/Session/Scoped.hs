@@ -5,7 +5,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeFamilies           #-}
 module Snap.Snaplet.Session.Scoped
     ( HasManager, toManager, ManagedState
@@ -19,7 +18,6 @@ module Snap.Snaplet.Session.Scoped
 import           ClassyPrelude
 import           Control.Lens
 import           Control.Monad.State.Class
-import           Data.Default
 import           Snap
 
 
@@ -62,7 +60,7 @@ type AccessSessionLens t a b = t -> Lens' a b
 -- | You should use this function to create a 'AccessSessionLens'. It ignores
 -- the 't' argument. The 't' ergument is only used to line up types.
 mkAccessSessionLens :: Lens' a b -> AccessSessionLens t a b
-mkAccessSessionLens lens _ = lens
+mkAccessSessionLens = const
 
 
 -- | A reference to a local session state from the global session state
@@ -99,11 +97,8 @@ commitSession = withTop' (toManager :: SnapletLens (Snaplet s) m) managerCommit
 getSession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => Handler s t (StateType t)
 getSession = do
     fs <- getFullSession
-    return $ fs^.accessSession (undefined :: t)
+    return $ fs^.accessSession (error "Do not evaluate!" :: t)
 
-
-setFullSession :: forall s m v. (HasManager s m) => ManagedState m -> Handler s v ()
-setFullSession sess = withTop' (toManager :: SnapletLens (Snaplet s) m) $ managerSetSession sess
 
 modifyFullSession :: forall s m v. (HasManager s m) => (ManagedState m -> ManagedState m) -> Handler s v (ManagedState m)
 modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) m) $ managerModifySession f
@@ -111,7 +106,7 @@ modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) m) $ manage
 
 -- | Set the local part of the session state to a new value
 setSession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => StateType t -> Handler s t ()
-setSession inner = modifyFullSession (accessSession (undefined :: t) .~ inner) >> return ()
+setSession inner = void $ modifyFullSession (accessSession (error "Do not evaluate!" :: t) .~ inner)
 
 
 -- | Modify the local session state with a function, returns the altered local state
@@ -121,4 +116,4 @@ setSession inner = modifyFullSession (accessSession (undefined :: t) .~ inner) >
 --      getSession = modifySession id
 -- @
 modifySession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => (StateType t -> StateType t) -> Handler s t (ManagedState m)
-modifySession f = modifyFullSession (accessSession (undefined :: t) %~ f)
+modifySession f = modifyFullSession (accessSession (error "Do not evaluate!" :: t) %~ f)

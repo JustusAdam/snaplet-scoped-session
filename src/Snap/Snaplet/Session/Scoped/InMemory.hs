@@ -47,7 +47,7 @@ initMemoryManager :: MonadIO m
                   -> m (MemoryManager a)
 initMemoryManager name len initial = do
     ref <- liftIO $ IORef.newIORef mempty
-    gen <- liftIO $ mkRNG
+    gen <- liftIO mkRNG
     return $ MkMemoryManager ref NotLoaded (fromMaybe "sess" name) (fromMaybe 20 len) initial gen
 
 
@@ -66,7 +66,7 @@ loadSession = do
             pl <- liftIO $ IORef.readIORef ref
             maybe
                 genNew
-                (\(Cookie { cookieValue = oldCookie }) -> do
+                (\Cookie{ cookieValue = oldCookie } -> do
                     logError $  "Cookie is " ++ oldCookie
                     maybe
                         genNew
@@ -92,7 +92,7 @@ loadSession = do
 instance Manager (MemoryManager a) where
     type ManagedState (MemoryManager a) = a
 
-    managerLoad = void $ loadSession
+    managerLoad = void loadSession
     managerGetSession = snd <$> loadSession
 
     managerModifySession f = do
@@ -112,6 +112,5 @@ instance Manager (MemoryManager a) where
                 when tokenChanged $ modifyResponse (addResponseCookie $ Cookie (man^.sessionCookieName) token Nothing Nothing (Just "/") False False)
                 when dataChanged $ liftIO $ IORef.modifyIORef (man^.globalState) $ at token .~ Just data_
                 currentSession .= NotLoaded
-                logError "committed"
-            NotLoaded -> logError "Not loaded" >> return ()
-            _ -> logError "No change" >> return ()
+            NotLoaded -> return ()
+            _ -> return ()
