@@ -1,8 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE ExplicitForAll         #-}
 {-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
@@ -49,8 +46,9 @@ class Manager manager where
 
 
 -- | Class providing access to a Snaplet managing session state
-class Manager m => HasManager a m | a -> m where
-    toManager :: SnapletLens (Snaplet a) m
+class Manager (ManagerFor a) => HasManager a where
+    type ManagerFor a
+    toManager :: SnapletLens (Snaplet a) (ManagerFor a)
 
 
 -- | Type magic
@@ -77,35 +75,35 @@ initSessionSnaplet :: Manager a => a -> SnapletInit b a
 initSessionSnaplet man = makeSnaplet "session-manager" "manages typed sessions" Nothing $ return man
 
 
-getFullSession :: forall s m v. (HasManager s m) => Handler s v (ManagedState m)
-getFullSession = withTop' (toManager :: SnapletLens (Snaplet s) m) managerGetSession
+getFullSession :: forall s v. HasManager s => Handler s v (ManagedState (ManagerFor s))
+getFullSession = withTop' (toManager :: SnapletLens (Snaplet s) (ManagerFor s)) managerGetSession
 
 
 -- | Tells the session state manager to load the session.
 -- Users should not have to call this function
-loadSession :: forall s m v. (HasManager s m) => Handler s v ()
-loadSession = withTop' (toManager :: SnapletLens (Snaplet s) m) managerLoad
+loadSession :: forall s v. HasManager s => Handler s v ()
+loadSession = withTop' (toManager :: SnapletLens (Snaplet s) (ManagerFor s)) managerLoad
 
 
 -- | Tells the session manager to persist any changes.
 -- Should be called at the end of a request cycle.
-commitSession :: forall s m v. (HasManager s m) => Handler s v ()
-commitSession = withTop' (toManager :: SnapletLens (Snaplet s) m) managerCommit
+commitSession :: forall s v. (HasManager s) => Handler s v ()
+commitSession = withTop' (toManager :: SnapletLens (Snaplet s) (ManagerFor s)) managerCommit
 
 
 -- | Obtain the local session for the current snaplet.
-getSession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => Handler s t (StateType t)
+getSession :: forall s t. (HasManager s, AccessSession t, GlobalStateType t ~ ManagedState (ManagerFor s)) => Handler s t (StateType t)
 getSession = do
     fs <- getFullSession
     return $ fs^.accessSession (error "Do not evaluate!" :: t)
 
 
-modifyFullSession :: forall s m v. (HasManager s m) => (ManagedState m -> ManagedState m) -> Handler s v (ManagedState m)
-modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) m) $ managerModifySession f
+modifyFullSession :: forall s v. HasManager s => (ManagedState (ManagerFor s) -> ManagedState (ManagerFor s)) -> Handler s v (ManagedState (ManagerFor s))
+modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) (ManagerFor s)) $ managerModifySession f
 
 
 -- | Set the local part of the session state to a new value
-setSession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => StateType t -> Handler s t ()
+setSession :: forall s t. (HasManager s, AccessSession t, GlobalStateType t ~ ManagedState (ManagerFor s)) => StateType t -> Handler s t ()
 setSession inner = void $ modifyFullSession (accessSession (error "Do not evaluate!" :: t) .~ inner)
 
 
@@ -115,5 +113,5 @@ setSession inner = void $ modifyFullSession (accessSession (error "Do not evalua
 --      setSession v = modifySession (const v)
 --      getSession = modifySession id
 -- @
-modifySession :: forall s t m. (HasManager s m, AccessSession t, GlobalStateType t ~ ManagedState m) => (StateType t -> StateType t) -> Handler s t (ManagedState m)
+modifySession :: forall s t. (HasManager s, AccessSession t, GlobalStateType t ~ ManagedState (ManagerFor s)) => (StateType t -> StateType t) -> Handler s t (ManagedState (ManagerFor s))
 modifySession f = modifyFullSession (accessSession (error "Do not evaluate!" :: t) %~ f)
