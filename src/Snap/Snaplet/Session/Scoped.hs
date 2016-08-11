@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 module Snap.Snaplet.Session.Scoped
-    ( HasManager, toManager, ManagedState
+    ( HasManager, ManagerFor, toManager, ManagedState
     , Manager, managerGetSession, managerSetSession, managerModifySession, managerCommit, managerLoad
     , AccessSession, GlobalStateType, StateType, accessSession, AccessSessionLens, mkAccessSessionLens
     , initSessionSnaplet
