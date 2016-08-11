@@ -18,7 +18,7 @@ import           Control.Monad.State.Class
 import           Data.IORef                  as IORef
 import           Snap
 import           Snap.Snaplet.Session.Common
-import           Snap.Snaplet.Session.Typed  hiding (loadSession)
+import           Snap.Snaplet.Session.Scoped hiding (loadSession)
 
 
 data SessionState a
@@ -27,6 +27,8 @@ data SessionState a
     | Changed Bool Bool ByteString a
 
 
+-- | A Manager for your session using a cookie + token on the client
+-- and storing the session data serverside in memory
 data MemoryManager a = MkMemoryManager
     { _globalState       :: IORef (HashMap ByteString a)
     , _currentSession    :: SessionState a
@@ -37,7 +39,12 @@ data MemoryManager a = MkMemoryManager
     }
 
 
-initMemoryManager :: MonadIO m => Maybe ByteString -> Maybe Int -> a -> m (MemoryManager a)
+-- | Uses this function to create a new 'MemoryManager' in your snaplet initializer
+initMemoryManager :: MonadIO m
+                  => Maybe ByteString -- ^ A name for the session cookie (default "sess")
+                  -> Maybe Int -- ^ A length (in characters) for the session token
+                  -> a -- ^ initial state value for a new session
+                  -> m (MemoryManager a)
 initMemoryManager name len initial = do
     ref <- liftIO $ IORef.newIORef mempty
     gen <- liftIO $ mkRNG

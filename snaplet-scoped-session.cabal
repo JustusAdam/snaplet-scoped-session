@@ -18,7 +18,19 @@ library
   exposed-modules:     Snap.Snaplet.Session.Scoped
                      , Snap.Snaplet.Session.Scoped.InMemory
   build-depends:       base >= 4.7 && < 5
+                     , snap
+                     , classy-prelude
+                     , data-default
+                     , lens
+                     , mtl
   default-language:    Haskell2010
+  ghc-options:       -Wall
+  default-extensions:  NoImplicitPrelude
+                     , OverloadedStrings
+                     , MultiParamTypeClasses
+                     , GADTs
+                     , TypeFamilies
+                     , TupleSections
 
 
 source-repository head
