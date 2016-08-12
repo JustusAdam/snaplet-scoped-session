@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeFamilies     #-}
 module Snap.Snaplet.Session.Scoped.InMemory
-    ( initMemoryManager, MemoryManager
+    ( initMemoryManager, initMemoryManager', MemoryManager
     ) where
 
 
@@ -117,7 +117,7 @@ newExpirationDate = addUTCTime <$> getSessionDuration <*> liftIO getCurrentTime
 
 
 instance Manager (MemoryManager a) where
-    type ManagedState (MemoryManager a) = a
+    type Manages (MemoryManager a) = a
 
     managerLoad = void loadSession
     managerGetSession = snd <$> loadSession
