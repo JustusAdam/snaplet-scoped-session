@@ -6,7 +6,7 @@
 module Snap.Snaplet.Session.Scoped
     ( HasManager, TheManager, toManager, Manages
     , Manager, managerGetSession, managerSetSession, managerModifySession, managerCommit, managerLoad
-    , AccessSession, GlobalSession, LocalSession, accessSession, AccessSessionLens, mkAccessSessionLens
+    , AccessSession, LocalSession, accessSession, AccessSessionLens, mkAccessSessionLens
     , CanAccessSubsession
     , initSessionSnaplet
     , getSession, setSession, modifySession, loadSession, commitSession
@@ -51,7 +51,7 @@ class Manager (TheManager a) => HasManager a where
     toManager :: SnapletLens (Snaplet a) (TheManager a)
 
 
-type CanAccessSubsession a b = (HasManager a, AccessSession b, Manages (TheManager a) ~ GlobalSession b)
+type CanAccessSubsession a b = (HasManager a, AccessSession (Manages (TheManager a)) b)
 
 
 -- | Type magic
@@ -66,10 +66,9 @@ mkAccessSessionLens = const
 
 -- | A reference to a LocalSession session state from the GlobalSession session state
 -- You have to implement this class for your subsnaplet to get access to a part of the GlobalSession session state.
-class AccessSession t where
-    type GlobalSession t
+class AccessSession base t where
     type LocalSession t
-    accessSession :: AccessSessionLens t (GlobalSession t) (LocalSession t)
+    accessSession :: AccessSessionLens t base (LocalSession t)
 
 
 -- | Initialize a session managing Snaplet from a manager. For an example manager see
@@ -95,7 +94,7 @@ commitSession = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager s)) m
 
 
 -- | Obtain the LocalSession session for the current snaplet.
-getSession :: forall s t. (HasManager s, AccessSession t, GlobalSession t ~ Manages (TheManager s)) => Handler s t (LocalSession t)
+getSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => Handler s t (LocalSession t)
 getSession = do
     fs <- getFullSession
     return $ fs^.accessSession (error "Do not evaluate!" :: t)
@@ -106,7 +105,7 @@ modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager
 
 
 -- | Set the LocalSession part of the session state to a new value
-setSession :: forall s t. (HasManager s, AccessSession t, GlobalSession t ~ Manages (TheManager s)) => LocalSession t -> Handler s t ()
+setSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => LocalSession t -> Handler s t ()
 setSession inner = void $ modifyFullSession (accessSession (error "Do not evaluate!" :: t) .~ inner)
 
 
@@ -116,5 +115,5 @@ setSession inner = void $ modifyFullSession (accessSession (error "Do not evalua
 --      setSession v = modifySession (const v)
 --      getSession = modifySession id
 -- @
-modifySession :: forall s t. (HasManager s, AccessSession t, GlobalSession t ~ Manages (TheManager s)) => (LocalSession t -> LocalSession t) -> Handler s t (Manages (TheManager s))
+modifySession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => (LocalSession t -> LocalSession t) -> Handler s t (Manages (TheManager s))
 modifySession f = modifyFullSession (accessSession (error "Do not evaluate!" :: t) %~ f)
