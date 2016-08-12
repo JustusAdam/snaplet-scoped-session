@@ -1,8 +1,8 @@
-{-# LANGUAGE ExplicitForAll         #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE ExplicitForAll      #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 module Snap.Snaplet.Session.Scoped
     ( HasManager, ManagerFor, toManager, ManagedState
     , Manager, managerGetSession, managerSetSession, managerModifySession, managerCommit, managerLoad
@@ -14,7 +14,6 @@ module Snap.Snaplet.Session.Scoped
 
 import           ClassyPrelude
 import           Control.Lens
-import           Control.Monad.State.Class
 import           Snap
 
 
@@ -30,16 +29,16 @@ import           Snap
 -- Therefore managers whould use mutable or persistent data structures like 'IORef' internally.
 class Manager manager where
     type ManagedState manager
-    managerGetSession :: (MonadSnap m, MonadState manager m) => m (ManagedState manager)
+    managerGetSession :: Handler v manager (ManagedState manager)
     managerGetSession = managerModifySession id
-    managerSetSession :: (MonadSnap m, MonadState manager m) => ManagedState manager -> m ()
+    managerSetSession :: ManagedState manager -> Handler v manager ()
     managerSetSession = managerModifySession . const >=> const (return ())
-    managerCommit :: (MonadSnap m, MonadState manager m) => m ()
+    managerCommit :: Handler v manager ()
     managerCommit = return ()
-    managerLoad :: (MonadSnap m, MonadState manager m) => m ()
+    managerLoad :: Handler v manager ()
     managerLoad = return ()
 
-    managerModifySession :: (MonadSnap m, MonadState manager m) => (ManagedState manager -> ManagedState manager) -> m (ManagedState manager)
+    managerModifySession :: (ManagedState manager -> ManagedState manager) -> Handler v manager (ManagedState manager)
     managerModifySession f = managerGetSession >>= \sess -> managerSetSession (f sess) >> return sess
 
     {-# MINIMAL managerGetSession, managerSetSession | managerModifySession #-}
