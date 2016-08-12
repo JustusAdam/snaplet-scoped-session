@@ -1,3 +1,12 @@
+{-|
+Module      : $Header$
+Description : Abstract Manager class and Session Snaplet
+Copyright   : (c) Justus Adam, 2016
+License     : BSD3
+Maintainer  : dev@justus.science
+Stability   : experimental
+Portability : POSIX
+-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ExplicitForAll      #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -25,21 +34,42 @@ import           Snap
 -- optionally persistent
 --
 -- It should be noted that although an implementation for 'managerCommit' and
--- 'managerLoad' is not required it is useful for efficiancy reasons.
+-- 'managerLoad' is not required it is useful for efficiency reasons.
 --
 -- The state of the manager is mutable within one request but reset for new requests.
--- Therefore managers whould use mutable or persistent data structures like 'IORef' internally.
+-- Therefore managers should use mutable or persistent data structures like 'IORef' internally.
 class Manager manager where
+    -- | Type of the session state inside the manager. In most cases this will
+    -- either be any type or a type constrained by some serialisation typeclass like
+    --
+    -- @
+    --  instance Serialize a => Manager (WritesToFileManager a) where
+    --      type Manages (WritesToFileManager a) = a
+    -- @
     type Manages manager
+    -- | Obtain the full session state for the current client.
     managerGetSession :: Handler v manager (Manages manager)
     managerGetSession = managerModifySession id
+    -- | Replace the state of the current sessio with the provided one
     managerSetSession :: Manages manager -> Handler v manager ()
     managerSetSession = managerModifySession . const >=> const (return ())
+
+    -- | Indicate to the manager that cached mutations on state should be persisted.
+    --
+    -- This method is entirely optional, however it is recommended
+    -- for managers where mutating the persistent state is expensive to
+    -- cache mutations in the manager data structure and persist them once commit
+    -- is called.
     managerCommit :: Handler v manager ()
     managerCommit = return ()
+
+    -- | Again optional. Users can use this method to indicate to the manager that
+    -- the session should be established (cookie read for instance) and the state
+    -- cached into the manager data structure.
     managerLoad :: Handler v manager ()
     managerLoad = return ()
 
+    -- | Applies a function to the (cached) session state
     managerModifySession :: (Manages manager -> Manages manager) -> Handler v manager (Manages manager)
     managerModifySession f = managerGetSession >>= \sess -> managerSetSession (f sess) >> return sess
 
@@ -48,25 +78,40 @@ class Manager manager where
 
 -- | Class providing access to a Snaplet managing session state
 class Manager (TheManager a) => HasManager a where
+    -- | Type of the manager, since this is defined in terms of the 'Manager' typeclass
     type TheManager a
+    -- | Like 'HasHeist', a lens to get to the manager snaplet.
     toManager :: SnapletLens (Snaplet a) (TheManager a)
 
 
-type CanAccessSubsession a b = (HasManager a, AccessSession (Manages (TheManager a)) b)
+-- | This is provided for convenience. Snaplets which use part of the state can
+-- use this shorthand in the type signature.
+--
+--      * 'base' is the (internal) type of your root snaplet
+--      * 'snaplet' is the (internal) type of the snaplet that wants to access the session
+--      * 't' is the type the (local) session data
+--
+-- If, for instance, our Snaplet was called 'Files' and it needed a HashSet as state
+-- and the global Snaplet type was unknown you could write the following:
+--
+-- @
+--  initFiles :: (CanAccessSubsession b Files HashSet) => SnapletInit b Files
+-- @
+type CanAccessSubsession base snaplet t = (HasManager base, AccessSession (Manages (TheManager base)) snaplet, LocalSession snaplet ~ t)
 
 
--- | Type magic
-type AccessSessionLens t a b = t -> Lens' a b
+-- | This is just type hacking to line up lenses. Use 'mkAccessSessionLens'
+-- to turn a regular lens into this type.
+newtype AccessSessionLens t a b = ASLens { getASLens :: t -> Lens' a b }
 
 
--- | You should use this function to create a 'AccessSessionLens'. It ignores
--- the 't' argument. The 't' ergument is only used to line up types.
+-- | Use this function to create an 'AccessSessionLens'. 't' is only used to line up types.
 mkAccessSessionLens :: Lens' a b -> AccessSessionLens t a b
-mkAccessSessionLens = const
+mkAccessSessionLens = ASLens . const
 
 
--- | A reference to a LocalSession session state from the GlobalSession session state
--- You have to implement this class for your subsnaplet to get access to a part of the GlobalSession session state.
+-- | A reference to a LocalSession session state from the global session state ('base').
+-- You have to implement this class for your subsnaplet ('t') to get access to a part of the global session state.
 class AccessSession base t where
     type LocalSession t
     accessSession :: AccessSessionLens t base (LocalSession t)
@@ -83,7 +128,6 @@ getFullSession = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager s)) 
 
 
 -- | Tells the session state manager to load the session.
--- Users should not have to call this function
 loadSession :: forall s v. HasManager s => Handler s v ()
 loadSession = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager s)) managerLoad
 
@@ -98,7 +142,7 @@ commitSession = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager s)) m
 getSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => Handler s t (LocalSession t)
 getSession = do
     fs <- getFullSession
-    return $ fs^.accessSession (error "Do not evaluate!" :: t)
+    return $ fs^.getASLens accessSession (error "Do not evaluate!" :: t)
 
 
 modifyFullSession :: forall s v. HasManager s => (Manages (TheManager s) -> Manages (TheManager s)) -> Handler s v (Manages (TheManager s))
@@ -107,7 +151,7 @@ modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager
 
 -- | Set the LocalSession part of the session state to a new value
 setSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => LocalSession t -> Handler s t ()
-setSession inner = void $ modifyFullSession (accessSession (error "Do not evaluate!" :: t) .~ inner)
+setSession inner = void $ modifyFullSession (getASLens accessSession (error "Do not evaluate!" :: t) .~ inner)
 
 
 -- | Modify the LocalSession session state with a function, returns the altered LocalSession state
@@ -117,4 +161,4 @@ setSession inner = void $ modifyFullSession (accessSession (error "Do not evalua
 --      getSession = modifySession id
 -- @
 modifySession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => (LocalSession t -> LocalSession t) -> Handler s t (Manages (TheManager s))
-modifySession f = modifyFullSession (accessSession (error "Do not evaluate!" :: t) %~ f)
+modifySession f = modifyFullSession (getASLens accessSession (error "Do not evaluate!" :: t) %~ f)
