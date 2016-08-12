@@ -2,11 +2,12 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies, ConstraintKinds        #-}
 module Snap.Snaplet.Session.Scoped
     ( HasManager, TheManager, toManager, Manages
     , Manager, managerGetSession, managerSetSession, managerModifySession, managerCommit, managerLoad
     , AccessSession, GlobalSession, LocalSession, accessSession, AccessSessionLens, mkAccessSessionLens
+    , CanAccessSubsession
     , initSessionSnaplet
     , getSession, setSession, modifySession, loadSession, commitSession
     ) where
@@ -48,6 +49,9 @@ class Manager manager where
 class Manager (TheManager a) => HasManager a where
     type TheManager a
     toManager :: SnapletLens (Snaplet a) (TheManager a)
+
+
+type CanAccessSubsession a b = (HasManager a, AccessSession b, Manages (TheManager a) ~ GlobalSession b)
 
 
 -- | Type magic
