@@ -1,8 +1,9 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ExplicitForAll      #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies, ConstraintKinds        #-}
+{-# LANGUAGE TypeFamilies        #-}
 module Snap.Snaplet.Session.Scoped
     ( HasManager, TheManager, toManager, Manages
     , Manager, managerGetSession, managerSetSession, managerModifySession, managerCommit, managerLoad
