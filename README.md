@@ -72,13 +72,17 @@ data Session = Session
 
 makeLenses SessionState
 
-instance AccessSession SnapletA where
-    type GlobalSession SnapletA = SessionState
+instance AccessSession Session SnapletA where
     type LocalSession SnapletA = SnapletASession
     accessSession = mkAccessSessionLens snapletA
 
-instance AccessSession SnapletB where
-    type GlobalSession SnapletB = SessionState
+instance AccessSession Session SnapletB where
     type LocalSession SnapletB = SnapletBSession
     accessSession = mkAccessSessionLens snapletB
 ```
+
+## Feedback
+
+Feedback for the implementation and the design decisions of this library is very welcome in the form of [issues](issues) or even better, a [pull request](compare).
+
+Feedback for the documentation is very welcome as well in the form of an [issue](issues).
