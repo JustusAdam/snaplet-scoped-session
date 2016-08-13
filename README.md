@@ -83,6 +83,6 @@ instance AccessSession Session SnapletB where
 
 ## Feedback
 
-Feedback for the implementation and the design decisions of this library is very welcome in the form of [issues](/JustusAdam/snaplet-scoped-session/issues) or even better, a [pull request](/JustusAdam/snaplet-scoped-session/compare).
+Feedback for the implementation and the design decisions of this library is very welcome in the form of [issues](https://github.com/JustusAdam/snaplet-scoped-session/issues) or even better, a [pull request](https://github.com/JustusAdam/snaplet-scoped-session/compare).
 
-Feedback for the documentation is very welcome as well in the form of an [issue](/JustusAdam/snaplet-scoped-session/issues).
+Feedback for the documentation is very welcome as well in the form of an [issue](https://github.com/JustusAdam/snaplet-scoped-session/issues).
