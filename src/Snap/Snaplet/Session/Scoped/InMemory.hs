@@ -30,12 +30,6 @@ import           Snap.Snaplet.Session.Common
 import           Snap.Snaplet.Session.Scoped hiding (loadSession)
 
 
-data SessionState a
-    = NotLoaded
-    | Loaded ByteString a
-    | Changed Bool Bool ByteString a
-
-
 -- | A Manager for your session using a cookie + token on the client
 -- and storing the session data serverside in memory
 data MemoryManager a = MkMemoryManager
@@ -113,16 +107,6 @@ loadSession = do
                 newCookie <- liftIO $ mkNewToken len
                 currentSession .= Changed True True newCookie (man^.initialSession)
                 return (newCookie, man^.initialSession)
-
-
-getSessionDuration :: Handler v b NominalDiffTime
-getSessionDuration = do
-    conf <- getSnapletUserConfig
-    liftIO $ fromInteger . (*60) . fromMaybe (60*24) <$> C.lookup conf "session-duration"
-
-
-newExpirationDate :: Handler v b UTCTime
-newExpirationDate = addUTCTime <$> getSessionDuration <*> liftIO getCurrentTime
 
 
 instance Manager (MemoryManager a) where
