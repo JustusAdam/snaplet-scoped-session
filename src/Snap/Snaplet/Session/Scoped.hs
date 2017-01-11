@@ -23,9 +23,9 @@ module Snap.Snaplet.Session.Scoped
     ) where
 
 
-import           ClassyPrelude
 import           Control.Lens
 import           Snap
+import Control.Monad
 
 
 -- | An abstract type for a session manager
@@ -107,7 +107,7 @@ newtype AccessSessionLens t a b = ASLens { getASLens :: t -> Lens' a b }
 
 -- | Use this function to create an 'AccessSessionLens'. 't' is only used to line up types.
 mkAccessSessionLens :: Lens' a b -> AccessSessionLens t a b
-mkAccessSessionLens = ASLens . const
+mkAccessSessionLens l = ASLens (const l)
 
 
 -- | A reference to a LocalSession session state from the global session state ('base').
@@ -119,7 +119,7 @@ class AccessSession base t where
 
 -- | Initialize a session managing Snaplet from a manager. For an example manager see
 -- 'Snap.Snaplet.Session.Scoped.InMemory'
-initSessionSnaplet :: Manager a => a -> SnapletInit b a
+initSessionSnaplet :: a -> SnapletInit b a
 initSessionSnaplet man = makeSnaplet "session-manager" "manages typed sessions" Nothing $ return man
 
 
@@ -150,10 +150,12 @@ modifyFullSession f = withTop' (toManager :: SnapletLens (Snaplet s) (TheManager
 
 
 -- | Set the LocalSession part of the session state to a new value
-setSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) => LocalSession t -> Handler s t ()
+setSession :: forall s t. (HasManager s, AccessSession (Manages (TheManager s)) t) 
+           => LocalSession t 
+           -> Handler s t ()
 setSession inner = void $ modifyFullSession (getASLens accessSession (error "Do not evaluate!" :: t) .~ inner)
 
-
+ 
 -- | Modify the LocalSession session state with a function, returns the altered LocalSession state
 --
 -- @

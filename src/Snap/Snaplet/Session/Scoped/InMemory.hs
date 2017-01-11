@@ -15,31 +15,36 @@ module Snap.Snaplet.Session.Scoped.InMemory
     ) where
 
 
-import           ClassyPrelude
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar     as MVar
 import           Control.Lens
 import           Control.Monad.State.Class
 import qualified Data.Configurator           as C
 import           Data.Default
-import qualified Data.HashMap.Strict         as HashMap
+import qualified Data.HashMap.Strict         as HM
 import           Data.IORef                  as IORef
 import           Data.Time.Clock
 import           Snap
 import           Snap.Snaplet.Session.Common
 import           Snap.Snaplet.Session.Scoped hiding (loadSession)
+import Control.Monad.IO.Class
+import qualified Data.ByteString as B
+import Data.Maybe (fromMaybe)
+import Control.Monad
+import Data.Monoid
+import Control.Concurrent
 
 
 data SessionState a
     = NotLoaded
-    | Loaded ByteString a
-    | Changed Bool Bool ByteString a
+    | Loaded B.ByteString a
+    | Changed Bool Bool B.ByteString a
 
 
 -- | A Manager for your session using a cookie + token on the client
 -- and storing the session data serverside in memory
 data MemoryManager a = MkMemoryManager
-    { _globalState    :: MVar (HashMap ByteString (UTCTime, a))
+    { _globalState    :: MVar (HM.HashMap B.ByteString (UTCTime, a))
     , _currentSession :: SessionState a
     , _initialSession :: a
     , _rng            :: RNG
@@ -47,11 +52,11 @@ data MemoryManager a = MkMemoryManager
     }
 
 
-runJanitor :: MVar (HashMap ByteString (UTCTime, a)) -> Int -> IO ()
+runJanitor :: MVar (HM.HashMap B.ByteString (UTCTime, a)) -> Int -> IO ()
 runJanitor ref delay = forever $ do
     threadDelay $ 60000000 * delay
     t <- getCurrentTime
-    MVar.modifyMVar_ ref $ return . HashMap.filter ((< t) . fst)
+    MVar.modifyMVar_ ref $ return . HM.filter ((< t) . fst)
 
 
 -- | Convenience function for creating managers for values with defined defaults
@@ -76,7 +81,7 @@ initMemoryManager' initial = do
 makeLenses ''MemoryManager
 
 
-loadSession :: Handler b (MemoryManager a) (ByteString, a)
+loadSession :: Handler b (MemoryManager a) (B.ByteString, a)
 loadSession = do
     man <- get
 
@@ -91,7 +96,7 @@ loadSession = do
             maybe
                 genNew
                 (\Cookie{ cookieValue = oldCookie } -> do
-                    logError $  "Cookie is " ++ oldCookie
+                    logError $  "Cookie is " <> oldCookie
                     maybe
                         genNew
                         (\(_, oldVal) -> do
@@ -104,7 +109,7 @@ loadSession = do
             mkNewToken len = do
                 newToken <- randomToken len (man^.rng)
                 pl <- MVar.readMVar ref
-                if newToken `member` pl
+                if newToken `HM.member` pl
                     then mkNewToken len
                     else return newToken
             genNew = do

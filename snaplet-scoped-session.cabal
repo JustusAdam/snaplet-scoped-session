@@ -20,7 +20,6 @@ library
                      , Snap.Snaplet.Session.Scoped.InMemory
   build-depends:       base >= 4.7 && < 5
                      , snap
-                     , classy-prelude
                      , data-default
                      , lens
                      , mtl
@@ -28,10 +27,10 @@ library
                      , time
                      , unordered-containers
                      , configurator
+                     , bytestring
   default-language:    Haskell2010
   ghc-options:       -Wall
-  default-extensions:  NoImplicitPrelude
-                     , OverloadedStrings
+  default-extensions:  OverloadedStrings
                      , MultiParamTypeClasses
                      , GADTs
                      , TypeFamilies
